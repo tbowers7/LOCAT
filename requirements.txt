@@ -1,2 +1,5 @@
-setuptools~=51.0.0
-astroquery~=0.4.1
+setuptools
+requests
+wget
+beautifulsoup4
+numpy

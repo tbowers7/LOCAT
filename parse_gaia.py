@@ -24,8 +24,44 @@ catalog(s) into a form acceptable to CAT's SQL database, and trim the catalog(s)
 appropriately (in sky coverage and magnitude).
 """
 
-from astroquery.gaia import Gaia
+from bs4 import BeautifulSoup
+import requests
+import wget
+import numpy as np
+import os
 
-tables = Gaia.load_tables(only_names=True)
-for table in tables:
-    print(table.get_qualified_name())
+edr3_url = 'http://cdn.gea.esac.esa.int/Gaia/gedr3/gaia_source/'
+fn_ext = 'gz'
+
+
+def list_fd(url, ext=''):
+    page = requests.get(url).text
+    # print(page)
+    soup = BeautifulSoup(page, 'html.parser')
+    return [url + '/' + node.get('href') for node in soup.find_all('a') if
+            node.get('href').endswith(ext)]
+
+
+files = list_fd(edr3_url, fn_ext)
+
+print(f'Number of files in the Gaia EDR3 catalog: {len(files)}')
+
+for i, file in enumerate(files, 1):
+
+    if i > 1:
+        break
+
+    lfn = file[file.rfind('/') + 1:]
+    print(f'\nDownloading catalog file ({i} of {len(files)}): {lfn}')
+    wget.download(file, out=lfn)
+
+    # Numpy magic
+    print(f'\nDecompressing and reading in file {lfn} ...')
+    data = np.genfromtxt(lfn, delimiter=',', names=True, filling_values=np.nan)
+
+    print(data.dtype.names)
+
+    # Do all the interesting stuff here...
+
+    # Remove the file from disk before cycling to the next one.
+    os.remove(lfn)

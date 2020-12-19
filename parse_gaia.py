@@ -111,7 +111,7 @@ def parse_edr3(test_one=True, use_existing=True):
         print(f'N sources in this file: {len(data["ra"])}')
 
         # Cull out objects too dim
-        data = data[magind := np.where(vmag <= 18)]
+        data = data[(magind := np.where(vmag <= 18))]
         vmag = vmag[magind]
         print(f'Sources after mag limit: {len(data["ra"])}')
 

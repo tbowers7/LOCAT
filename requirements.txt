@@ -3,3 +3,4 @@ requests
 wget
 beautifulsoup4
 numpy
+astropy

@@ -88,6 +88,11 @@ def parse_edr3(test_one=True, use_existing=True):
 
         # Construct the local filename.  Really, just the remote w/o the path
         lfn = file[file.rfind('/') + 1:]
+        fitsfn = f'{lfn[:lfn.find(".")]}.fits'
+
+        # Check if related FITS table exists.  If yes, skip to the next one.
+        if os.path.isfile(fitsfn):
+            continue
 
         # To prevent multiple copies of a .csv.gz file, remove or use existing
         if os.path.isfile(lfn) and not use_existing:
@@ -158,7 +163,7 @@ def parse_edr3(test_one=True, use_existing=True):
         print(t[0])
 
         # Write the table to a FITS binary table, using the same filename
-        t.write(f'{lfn[:lfn.find(".")]}.fits', overwrite=True)
+        t.write(fitsfn, overwrite=True)
 
         # Remove the .csv.gz file from disk before cycling to the next one.
         if not use_existing:

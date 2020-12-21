@@ -1,6 +1,6 @@
 setuptools
 requests
-wget
-beautifulsoup4
 numpy
+tqdm
 astropy
+bs4

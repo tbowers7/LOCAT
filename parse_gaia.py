@@ -30,7 +30,7 @@ import requests
 
 # Third-Party Libraries
 from bs4 import BeautifulSoup
-import wget
+from tqdm import tqdm
 
 # Numpy
 import numpy as np
@@ -101,7 +101,21 @@ def parse_edr3(test_one=True, use_existing=True):
         # Download the appropriate EDR3 catalog file
         if not os.path.isfile(lfn):
             print(f'\nDownloading catalog file ({i} of {len(files)}): {lfn}')
-            wget.download(file, out=lfn)
+            # Streaming, so we can iterate over the http_respond
+            http_respond = requests.get(file, stream=True)
+            file_size_bytes = int(http_respond.headers.get('content-length', 0))
+            progress_bar = tqdm(total=file_size_bytes, unit='iB',
+                                unit_scale=True)
+            with open(tempfn := f'{lfn}.tmp', 'wb') as f:
+                # Update the progress bar for each 100kB downloaded
+                for data in http_respond.iter_content(1024):
+                    progress_bar.update(len(data))
+                    f.write(data)
+            progress_bar.close()
+            if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
+                print("ERROR, something went wrong")
+            else:
+                os.rename(tempfn, lfn)
 
         # Use Numpy's genfromtxt function, which will also decompress!
         print(f'\nDecompressing and reading in file {lfn} ...')

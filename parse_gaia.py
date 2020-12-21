@@ -102,20 +102,35 @@ def parse_edr3(test_one=True, use_existing=True):
         if not os.path.isfile(lfn):
             print(f'\nDownloading catalog file ({i} of {len(files)}): {lfn}')
             # Streaming, so we can iterate over the http_respond
-            http_respond = requests.get(file, stream=True)
+            http_respond = requests.get(file, stream=True, timeout=10)
             file_size_bytes = int(http_respond.headers.get('content-length', 0))
             progress_bar = tqdm(total=file_size_bytes, unit='iB',
                                 unit_scale=True)
-            with open(tempfn := f'{lfn}.tmp', 'wb') as f:
-                # Update the progress bar for each 100kB downloaded
-                for data in http_respond.iter_content(1024):
-                    progress_bar.update(len(data))
-                    f.write(data)
-            progress_bar.close()
-            if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
-                print("ERROR, something went wrong")
-            else:
-                os.rename(tempfn, lfn)
+
+            while progress_bar.n != file_size_bytes:
+                with open(tempfn := f'{lfn}.tmp', 'wb') as f:
+                    try:
+                        # Update the progress bar for each 100kB downloaded
+                        for data in http_respond.iter_content(1024*100):
+                            progress_bar.update(len(data))
+                            f.write(data)
+                    except requests.ConnectionError:
+                        errmsg = f'Connection Error occurred.'
+                    except requests.ReadTimeout:
+                        errmsg = f'Read Timeout error occurred.'
+                    else:
+                        errmsg = f'Unspecified error occurred.'
+
+                if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
+                    print(f'{errmsg}  Trying again...')
+                    # Reload the requests.get() object (go back up the creek)
+                    http_respond = requests.get(file, stream=True, timeout=10)
+                    # Reset the progress bar object to restart
+                    progress_bar.reset()
+                else:
+                    # Close the progress bar, and move the temp file to lfn
+                    progress_bar.close()
+                    os.rename(tempfn, lfn)
 
         # Use Numpy's genfromtxt function, which will also decompress!
         print(f'\nDecompressing and reading in file {lfn} ...')

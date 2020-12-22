@@ -111,7 +111,7 @@ def parse_edr3(test_one=True, use_existing=True):
                 with open(tempfn := f'{lfn}.tmp', 'wb') as f:
                     try:
                         # Update the progress bar for each 100kB downloaded
-                        for data in http_respond.iter_content(1024*100):
+                        for data in http_respond.iter_content(1024 * 100):
                             progress_bar.update(len(data))
                             f.write(data)
                     except requests.ConnectionError:
@@ -150,7 +150,8 @@ def parse_edr3(test_one=True, use_existing=True):
         print(f'Sources after mag limit: {len(data["ra"])}')
 
         # Cull out objects too far south
-        data = data[np.where(data["dec"] > -40)]
+        data = data[(decind := np.where(data["dec"] > -40))]
+        vmag = vmag[decind]
         print(f'Sources after dec limit: {len(data["ra"])}')
 
         # Print some summary statistics to the screen

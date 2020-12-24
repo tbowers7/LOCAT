@@ -144,6 +144,9 @@ def parse_edr3(test_one=True, use_existing=True):
         # Next, work to cull out the objects that do not meet our requirements
         print(f'N sources in this file: {len(data["ra"])}')
 
+        # Save declinations for sanity check
+        gaia_dec = data["dec"]
+
         # Cull out objects too dim
         data = data[(magind := np.where(vmag <= 18))]
         vmag = vmag[magind]
@@ -153,6 +156,16 @@ def parse_edr3(test_one=True, use_existing=True):
         data = data[(decind := np.where(data["dec"] > -40))]
         vmag = vmag[decind]
         print(f'Sources after dec limit: {len(data["ra"])}')
+
+        # If entire file out-of-range, remove downloaded file & continue
+        if len(data["ra"]) == 0:
+            print(f"Catalog declination range: {np.nanmin(gaia_dec):.4f} - " +
+                  f"{np.nanmax(gaia_dec):.4f}")
+            print("No sources from this file to be saved.")
+            # Create empty FITS file for bookkeeping
+            open(fitsfn, 'a').close()
+            os.remove(lfn)
+            continue
 
         # Print some summary statistics to the screen
         print(f'R.A. range: {np.min(data["ra"]):.4f} - ' +

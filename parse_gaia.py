@@ -116,9 +116,9 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
                             progress_bar.update(len(data))
                             f.write(data)
                             if throttle:
-                                # Sleeping for 0.1 seconds means a continuous
-                                #  download speed of ~1.0 MB/s
-                                time.sleep(0.1)
+                                # Sleeping for 0.2 seconds means a continuous
+                                #  download speed of ~0.5 MB/s
+                                time.sleep(0.2)
                     except requests.ConnectionError:
                         errmsg = f'Connection Error occurred.'
                     except requests.ReadTimeout:

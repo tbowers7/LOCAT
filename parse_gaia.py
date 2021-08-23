@@ -36,7 +36,7 @@ from astropy.table import Table
 from .http_utils import *
 
 
-def parse_edr3(test_one=True, use_existing=True, throttle=False):
+def parse_edr3(test_one=True, use_existing=True, throttle=None):
     """parse_edr3 Parse each catalog file of Gaia EDR3 into a binary FITS table
 
     Each EDR3 catalog file contains oodles of information about each source,
@@ -52,12 +52,12 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
 
     Parameters
     ----------
-    test_one : bool, optional
+    test_one : `bool`, optional
         Only run on one EDR3 file for testing [Default: True]
-    use_existing : bool, optional
+    use_existing : `bool`, optional
         Check for and use existing EDR3 file [Default: True]
-    throttle : bool, optional
-        Limit bandwidth usage (currently 0.5 MB/s) [Default: False]
+    throttle : `float`, optional
+        Limit bandwidth usage (MB/s) [Default: None]
     """
 
     # Gaia EDR3 catalog location

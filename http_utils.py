@@ -56,7 +56,26 @@ def list_http_directory(url, ext=''):
             link.get('href').endswith(ext)]
 
 
-def download_file(file, lfn, throttle):
+def download_file(file, lfn, throttle=None):
+    """download_file Use Requests to download `file` into `lfn`
+
+    Use requests to stream the download of `file` into local `lfn`
+    while displaying a progress bar with ETA.
+
+    Parameters
+    ----------
+    file : `str`
+        Full URL of the remote file to download
+    lfn : `str`
+        Local filename to which to save `file`
+    throttle : `float`, optional
+        Bandwidth throttle speed (MB/s) [Default: None]
+    """
+    # Set the chunk size for downloading the file stream
+    chunk = 100 * 1024   # 100kB
+    # Delay to introduce in the download stream to achieve `throttle`
+    delay = None if throttle is None else (chunk / 1024**2 / throttle)
+
     # Streaming, so we can iterate over the http_respond
     http_respond = requests.get(file, stream=True, timeout=10)
     file_size_bytes = int(http_respond.headers.get('content-length', 0))
@@ -66,14 +85,12 @@ def download_file(file, lfn, throttle):
     while progress_bar.n != file_size_bytes:
         with open(tempfn := f'{lfn}.tmp', 'wb') as f:
             try:
-                # Update the progress bar for each 100kB downloaded
-                for data in http_respond.iter_content(1024 * 100):
+                # Update the progress bar for each chunk downloaded
+                for data in http_respond.iter_content(chunk):
                     progress_bar.update(len(data))
                     f.write(data)
-                    if throttle:
-                        # Sleeping for 0.2 seconds means a continuous
-                        #  download speed of ~0.5 MB/s
-                        time.sleep(0.2)
+                    if delay is not None:
+                        time.sleep(delay)
             except requests.ConnectionError:
                 errmsg = f'Connection Error occurred.'
             except requests.ReadTimeout:

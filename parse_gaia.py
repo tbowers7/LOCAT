@@ -6,7 +6,8 @@
 #   License, v. 2.0. If a copy of the MPL was not distributed with this
 #   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-#  Created on 18-Dec-2020
+#  Created: 18-Dec-2020
+#  Modified: 23-Aug-2021
 #
 #  @author: tbowers
 
@@ -26,35 +27,18 @@ appropriately (in sky coverage and magnitude).
 
 # Built-In Libraries
 import os
-import requests
-import time
 
 # Third-Party Libraries
-from bs4 import BeautifulSoup
-from tqdm import tqdm
-
-# Numpy
 import numpy as np
-
-# Astropy
 from astropy.table import Table
 
-
-def list_http_directory(url, ext=''):
-    """Given a remote HTTP directory, returns the list of files matching ext
-
-    :param url: The URL of the directory for which a file list is desired
-    :param ext: File extensions to be considered.  Default=''
-    :return: List of files linked at URL
-    """
-    html_page = requests.get(url).text
-    soup = BeautifulSoup(html_page, 'html.parser')
-    return [url + '/' + link.get('href') for link in soup.find_all('a') if
-            link.get('href').endswith(ext)]
+# General CAT routines
+from .http_utils import *
 
 
 def parse_edr3(test_one=True, use_existing=True, throttle=False):
-    """Parse each catalog file of Gaia EDR3 into a binary FITS table
+    """parse_edr3 Parse each catalog file of Gaia EDR3 into a binary FITS table
+
     Each EDR3 catalog file contains oodles of information about each source,
     but for the purposes of the CAT, we only need a small subset of this
     information.  Furthermore, we don't need to include in our version of the
@@ -64,14 +48,17 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
 
     The output FITS tables have the same name as the original EDR3 files, but
     with FITS extension.
-    
-    :param use_existing: `bool` Check for and use existing EDR3 file
-    :param test_one: `bool` Just run on one file, for testing
-    :return: None.
+
+
+    Parameters
+    ----------
+    test_one : bool, optional
+        Only run on one EDR3 file for testing [Default: True]
+    use_existing : bool, optional
+        Check for and use existing EDR3 file [Default: True]
+    throttle : bool, optional
+        Limit bandwidth usage (currently 0.5 MB/s) [Default: False]
     """
-    # Gaia EDR3 photometry conversions, G - V = f(G_BP - G_RP)
-    # From Riello, et al. 2020.  A&A, vvv, nnn, Table C2
-    a = [-0.02704, 0.01424, -0.2156, 0.01426]
 
     # Gaia EDR3 catalog location
     edr3_url = 'http://cdn.gea.esac.esa.int/Gaia/gedr3/gaia_source/'
@@ -80,7 +67,7 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
     files = list_http_directory(edr3_url, 'gz')
 
     # Start working our way through the list
-    print(f'Number of files in the Gaia EDR3 catalog: {len(files)}')
+    print(f"Number of files in the Gaia EDR3 catalog: {len(files)}")
     for i, file in enumerate(files, 1):
 
         # Testing condition
@@ -88,8 +75,8 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
             break
 
         # Construct the local filename.  Really, just the remote w/o the path
-        lfn = file[file.rfind('/') + 1:]
-        fitsfn = f'{lfn[:lfn.find(".")]}.fits'
+        lfn = file.split('/')[-1]
+        fitsfn = f"{lfn.split('.')[0]}.fits"
 
         # Check if related FITS table exists.  If yes, skip to the next one.
         if os.path.isfile(fitsfn):
@@ -101,69 +88,36 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
 
         # Download the appropriate EDR3 catalog file
         if not os.path.isfile(lfn):
-            print(f'\nDownloading catalog file ({i} of {len(files)}): {lfn}')
-            # Streaming, so we can iterate over the http_respond
-            http_respond = requests.get(file, stream=True, timeout=10)
-            file_size_bytes = int(http_respond.headers.get('content-length', 0))
-            progress_bar = tqdm(total=file_size_bytes, unit='iB',
-                                unit_scale=True)
+            print(f"\nDownloading catalog file ({i} of {len(files)}): {lfn}")
+            download_file(file, lfn, throttle)
 
-            while progress_bar.n != file_size_bytes:
-                with open(tempfn := f'{lfn}.tmp', 'wb') as f:
-                    try:
-                        # Update the progress bar for each 100kB downloaded
-                        for data in http_respond.iter_content(1024 * 100):
-                            progress_bar.update(len(data))
-                            f.write(data)
-                            if throttle:
-                                # Sleeping for 0.2 seconds means a continuous
-                                #  download speed of ~0.5 MB/s
-                                time.sleep(0.2)
-                    except requests.ConnectionError:
-                        errmsg = f'Connection Error occurred.'
-                    except requests.ReadTimeout:
-                        errmsg = f'Read Timeout error occurred.'
-                    else:
-                        errmsg = f'Unspecified error occurred.'
-
-                if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
-                    print(f'{errmsg}  Trying again...')
-                    # Reload the requests.get() object (go back up the creek)
-                    http_respond = requests.get(file, stream=True, timeout=10)
-                    # Reset the progress bar object to restart
-                    progress_bar.reset()
-                else:
-                    # Close the progress bar, and move the temp file to lfn
-                    progress_bar.close()
-                    os.rename(tempfn, lfn)
-
-        # Use Numpy's genfromtxt function, which will also decompress!
-        print(f'\nDecompressing and reading in file {lfn} ...')
-        data = np.genfromtxt(lfn, delimiter=',', names=True,
-                             filling_values=np.nan)
+        # Read into AstroPy table, which will also decompress!
+        print(f"\nDecompressing and reading in file {lfn} ...")
+        data = Table.read(lfn, format='ascii.csv')
 
         # Use the Gaia EDR3 photometry conversion to yield Johnson V magnitude
-        vmag = data["phot_g_mean_mag"] - a[0] - a[1] * data["bp_rp"] - \
-               a[2] * data["bp_rp"] ** 2 - a[3] * data["bp_rp"] ** 3
+        V, R, I = convert_edr3_phot_jc(data['phot_g_mean_mag'], data['bp_rp'])
+        data['vmag'] = V
+        data['V'] = V
+        data['R'] = R
+        data['I'] = I
 
         # Next, work to cull out the objects that do not meet our requirements
-        print(f'N sources in this file: {len(data["ra"])}')
+        print(f"N sources in this file: {len(data['ra'])}")
 
         # Save declinations for sanity check
-        gaia_dec = data["dec"]
+        gaia_dec = data['dec'].copy()
 
         # Cull out objects too dim
-        data = data[(magind := np.where(vmag <= 18))]
-        vmag = vmag[magind]
-        print(f'Sources after mag limit: {len(data["ra"])}')
+        data = data[np.where(data['vmag'] <= 18)]
+        print(f"Sources after mag limit: {len(data['ra'])}")
 
         # Cull out objects too far south
-        data = data[(decind := np.where(data["dec"] > -40))]
-        vmag = vmag[decind]
-        print(f'Sources after dec limit: {len(data["ra"])}')
+        data = data[np.where(data['dec'] > -40)]
+        print(f"Sources after dec limit: {len(data['ra'])}")
 
         # If entire file out-of-range, remove downloaded file & continue
-        if len(data["ra"]) == 0:
+        if len(data['ra']) == 0:
             print(f"Catalog declination range: {np.nanmin(gaia_dec):.4f} - " +
                   f"{np.nanmax(gaia_dec):.4f}")
             print("No sources from this file to be saved.")
@@ -173,39 +127,42 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
             continue
 
         # Print some summary statistics to the screen
-        print(f'R.A. range: {np.min(data["ra"]):.4f} - ' +
-              f'{np.max(data["ra"]):.4f}')
-        print(f'Dec. range: {np.min(data["dec"]):.4f} - ' +
-              f'{np.max(data["dec"]):.4f}')
-        print(f'Vmag range: {np.nanmin(vmag):.2f} - ' +
-              f'{np.nanmax(vmag):.2f}')
+        print(f"R.A. range: {np.min(data['ra']):.4f} - " +
+              f"{np.max(data['ra']):.4f}")
+        print(f"Dec. range: {np.min(data['dec']):.4f} - " +
+              f"{np.max(data['dec']):.4f}")
+        print(f"Vmag range: {np.nanmin(data['vmag']):.2f} - " +
+              f"{np.nanmax(data['vmag']):.2f}")
 
+        #======================================#
         # Construct the parts needed for the CAT
-        # Name = 'source_id'                       (unsigned 64-bit integer)
-        name = data['source_id'].astype('u8')
-        # Right Ascension = 'ra'                   (64-bit float)
-        ra = data['ra'].astype('f8')
-        # Declination = 'dec'                      (64-bit float)
-        dec = data['dec'].astype('f8')
-        # Epoch = 'ref_epoch'                      (32-bit float)
-        epoch = data['ref_epoch'].astype('f4')
-        # Proper Motion in RA * cos(dec)= 'pmra'   (32-bit float)
-        pmra = data['pmra'].astype('f4')
-        # Proper Motion in Declincation = 'pmdec'  (32-bit float)
-        pmdec = data['pmdec'].astype('f4')
-        # Magnitude = 'vmag'                       (32-bit float)
-        vmag = vmag.astype('f4')
-        # G-band magnitude = 'phot_g_mean_mag'     (32-bit float)
-        g_mag = data['phot_g_mean_mag'].astype('f4')
-        # G_BP magnitude = 'phot_bp_mean_mag'      (32-bit float)
-        g_bp = data['phot_bp_mean_mag'].astype('f4')
-        # G_RP magnitude = 'phot_rp_mean_mag'      (32-bit float)
-        g_rp = data['phot_rp_mean_mag'].astype('f4')
+        t = Table()
 
-        # Stuff all of these into an AstroPy table, which has easy writing
-        t = Table([name, ra, dec, epoch, pmra, pmdec, vmag, g_mag, g_bp, g_rp],
-                  names=['name', 'ra', 'dec', 'epoch', 'pmra', 'pmdec', 'vmag',
-                         'g_mag', 'g_bp', 'g_rp'])
+        # Name = 'source_id'                       (unsigned 64-bit integer)
+        t['name'] = data['source_id'].astype('u8')
+
+        # Right Ascension = 'ra'                   (64-bit float)
+        # Declination = 'dec'                      (64-bit float)
+        for col in ['ra', 'dec']:
+            t[col] = data[col].astype('f8')
+
+        # Proper Motion in RA * cos(dec)= 'pmra'   (32-bit float)
+        # Proper Motion in Declincation = 'pmdec'  (32-bit float)
+        # Magnitude = 'vmag'                       (32-bit float)
+        # Johnson-Cousins V = 'V'                  (32-bit float)
+        # Johnson-Cousins R = 'R'                  (32-bit float)
+        # Johnson-Cousins I = 'I'                  (32-bit float)
+        for col in ['pmra', 'pmdec', 'vmag', 'V', 'R', 'I']:
+            t[col] = data[col].astype('f4')
+
+        # Epoch = 'ref_epoch'                      (32-bit float)
+        # G-band magnitude = 'phot_g_mean_mag'     (32-bit float)
+        # G_BP magnitude = 'phot_bp_mean_mag'      (32-bit float)
+        # G_RP magnitude = 'phot_rp_mean_mag'      (32-bit float)
+        for c1, c2 in zip(['epoch', 'g_mag', 'g_bp', 'g_rp'],
+                          ['ref_epoch', 'phot_g_mean_mag', 'phot_bp_mean_mag',
+                           'phot_rp_mean_mag']):
+            t[c1] = data[c2].astype('f4')
 
         # Print out the first line of the table for a sanity check
         print(t[0])
@@ -216,6 +173,27 @@ def parse_edr3(test_one=True, use_existing=True, throttle=False):
         # Remove the .csv.gz file from disk before cycling to the next one.
         if not use_existing:
             os.remove(lfn)
+
+
+def convert_edr3_phot_jc(g, br):
+
+    # Gaia EDR3 photometry conversions
+    # From Riello, et al. 2021.  A&A, 649, A3, Table C2
+
+    # G - V = f(a, G_BP - G_RP)
+    a = [-0.02704, 0.01424, -0.2156, 0.01426]
+    vmag = g - a[0] - a[1]*br - a[2]*br**2 - a[3]*br**3
+
+    # G - R = f(b, G_BP - G_RP)
+    b = [-0.02275, 0.3961, -0.1243, -0.01396, 0.003775]
+    rmag = g - b[0] - b[1]*br - b[2]*br**2 - b[3]*br**3 - b[4]*br**4
+
+    # G - I = f(c, G_BP - G_RP)
+    c = [0.01753, 0.76, -0.0991]
+    imag = g - c[0] - c[1]*br - c[2]*br**2
+
+    return vmag, rmag, imag
+
 
 
 

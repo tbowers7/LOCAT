@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  This file is part of LDTaddCAT.
+#  This file is part of LOCAT.
 #
 #   This Source Code Form is subject to the terms of the Mozilla Public
 #   License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,7 +10,7 @@
 #
 #  @author: tbowers
 
-"""LDTaddCAT contains routines for importing new pointing catalogs into CAT
+"""LOCAT contains routines for importing new pointing catalogs into CAT
 
 Lowell Discovery Telescope (Lowell Observatory: Flagstaff, AZ)
 http://www.lowell.edu
@@ -27,6 +27,7 @@ appropriately (in sky coverage and magnitude).
 # Built-In Libraries
 import os
 import requests
+import time
 
 # Third-Party Libraries
 from bs4 import BeautifulSoup
@@ -52,7 +53,7 @@ def list_http_directory(url, ext=''):
             link.get('href').endswith(ext)]
 
 
-def parse_edr3(test_one=True, use_existing=True):
+def parse_edr3(test_one=True, use_existing=True, throttle=False):
     """Parse each catalog file of Gaia EDR3 into a binary FITS table
     Each EDR3 catalog file contains oodles of information about each source,
     but for the purposes of the CAT, we only need a small subset of this
@@ -114,6 +115,10 @@ def parse_edr3(test_one=True, use_existing=True):
                         for data in http_respond.iter_content(1024 * 100):
                             progress_bar.update(len(data))
                             f.write(data)
+                            if throttle:
+                                # Sleeping for 0.1 seconds means a continuous
+                                #  download speed of ~1.0 MB/s
+                                time.sleep(0.1)
                     except requests.ConnectionError:
                         errmsg = f'Connection Error occurred.'
                     except requests.ReadTimeout:
@@ -213,6 +218,8 @@ def parse_edr3(test_one=True, use_existing=True):
             os.remove(lfn)
 
 
+
+#======================================
 def main():
     """
     This is the main body function.

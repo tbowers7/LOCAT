@@ -83,7 +83,7 @@ def download_file(file, lfn, throttle=None):
                         unit_scale=True)
 
     while progress_bar.n != file_size_bytes:
-        with open(tempfn := f'{lfn}.tmp', 'wb') as f:
+        with open(tempfn := f"{lfn}.tmp", 'wb') as f:
             try:
                 # Update the progress bar for each chunk downloaded
                 for data in http_respond.iter_content(chunk):
@@ -91,14 +91,14 @@ def download_file(file, lfn, throttle=None):
                     f.write(data)
                     time.sleep(delay)
             except requests.ConnectionError:
-                errmsg = f'Connection Error occurred.'
+                errmsg = "Connection Error occurred."
             except requests.ReadTimeout:
-                errmsg = f'Read Timeout error occurred.'
+                errmsg = "Read Timeout error occurred."
             else:
-                errmsg = f'Unspecified error occurred.'
+                errmsg = "Unspecified error occurred."
 
         if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
-            print(f'{errmsg}  Trying again...')
+            print(f"{errmsg}  Trying again...")
             # Reload the requests.get() object (go back up the creek)
             http_respond = requests.get(file, stream=True, timeout=10)
             # Reset the progress bar object to restart

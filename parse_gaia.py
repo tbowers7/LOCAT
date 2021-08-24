@@ -87,7 +87,7 @@ def parse_edr3(test_one=True, use_existing=True, throttle=None):
             os.remove(lfn)
 
         # Download the appropriate EDR3 catalog file
-        if not os.path.isfile(lfn):
+        while not os.path.isfile(lfn):
             print(f"\nDownloading catalog file ({i} of {len(files)}): {lfn}")
             download_file(file, lfn, throttle)
 

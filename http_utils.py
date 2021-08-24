@@ -94,6 +94,8 @@ def download_file(file, lfn, throttle=None):
                 errmsg = "Connection Error occurred."
             except requests.ReadTimeout:
                 errmsg = "Read Timeout error occurred."
+            except requests.exceptions.ChunkedEncodingError:
+                errmsg = "Chunk Encoding Error occurred."
             else:
                 errmsg = "Unspecified error occurred."
 

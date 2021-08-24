@@ -74,7 +74,7 @@ def download_file(file, lfn, throttle=None):
     # Set the chunk size for downloading the file stream
     chunk = 100 * 1024   # 100kB
     # Delay to introduce in the download stream to achieve `throttle`
-    delay = None if throttle is None else (chunk / 1024**2 / throttle)
+    delay = 0 if throttle is None else (chunk / 1024**2 / throttle)
 
     # Streaming, so we can iterate over the http_respond
     http_respond = requests.get(file, stream=True, timeout=10)
@@ -89,8 +89,7 @@ def download_file(file, lfn, throttle=None):
                 for data in http_respond.iter_content(chunk):
                     progress_bar.update(len(data))
                     f.write(data)
-                    if delay is not None:
-                        time.sleep(delay)
+                    time.sleep(delay)
             except requests.ConnectionError:
                 errmsg = f'Connection Error occurred.'
             except requests.ReadTimeout:

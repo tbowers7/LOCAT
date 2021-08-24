@@ -1,8 +1,15 @@
-# LDTaddCAT
+# LOCAT
 
-Package to add new pointing catalogs to the LDT CAT.
+Package to add new pointing catalogs to the Lowell Observatory CAT.
+
+Public catalogs supported by this package:
+
+* `Gaia EDR3` - Gaia Early Data Release 3
 
 ---
+
+## General Outline of What Needs to Happen:
+
 
 *From Georgi:*
 

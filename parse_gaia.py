@@ -88,7 +88,8 @@ def parse_edr3(test_one=True, use_existing=True, throttle=None):
 
         # Download the appropriate EDR3 catalog file
         while not os.path.isfile(lfn):
-            print(f"\nDownloading catalog file ({i} of {len(files)}): {lfn}")
+            print(f"\nDownloading catalog file ({i} of {len(files)}, " + \
+                  f"{i / len(files) * 100:.0f}%): {lfn}")
             download_file(file, lfn, throttle)
 
         # Read into AstroPy table, which will also decompress!

@@ -102,9 +102,14 @@ def download_file(file, lfn, throttle=None):
         if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
             print(f"{errmsg}  Trying again...")
             # Reload the requests.get() object (go back up the creek)
-            http_respond = requests.get(file, stream=True, timeout=10)
-            # Reset the progress bar object to restart
-            progress_bar.reset()
+            while (have_http := False) == False:
+                try:
+                    http_respond = requests.get(file, stream=True, timeout=10)
+                    have_http = True
+                    # Reset the progress bar object to restart            
+                    progress_bar.reset()
+                except ConnectionError:
+                    pass
         else:
             # Close the progress bar, and move the temp file to lfn
             progress_bar.close()

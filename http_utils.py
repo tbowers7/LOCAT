@@ -104,9 +104,11 @@ def download_file(file, lfn, throttle=None):
             # Reload the requests.get() object (go back up the creek)
             while (have_http := False) == False:
                 try:
+                    print("Inside `try:` loop...")
                     http_respond = requests.get(file, stream=True, timeout=10)
+                    file_size_bytes = int(http_respond.headers.get('content-length', 0))
                     have_http = True
-                    # Reset the progress bar object to restart            
+                    # Reset the progress bar object to restart
                     progress_bar.reset()
                 except ConnectionError:
                     pass

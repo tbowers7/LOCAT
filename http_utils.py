@@ -102,7 +102,8 @@ def download_file(file, lfn, throttle=None):
         if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
             print(f"{errmsg}  Trying again...")
             # Reload the requests.get() object (go back up the creek)
-            while (have_http := False) == False:
+            have_http = False
+            while have_http == False:
                 try:
                     print("Inside `try:` loop...")
                     http_respond = requests.get(file, stream=True, timeout=10)

@@ -25,11 +25,11 @@ any online archive.
 
 # Built-In Libraries
 import os
-import requests
 import time
 
 # Third-Party Libraries
 from bs4 import BeautifulSoup
+import requests
 from tqdm import tqdm
 
 
@@ -99,11 +99,11 @@ def download_file(file, lfn, throttle=None):
             else:
                 errmsg = "Unspecified error occurred."
 
-        if file_size_bytes != 0 and progress_bar.n != file_size_bytes:
+        if file_size_bytes not in (0, progress_bar.n):
             print(f"{errmsg}  Trying again...")
             # Reload the requests.get() object (go back up the creek)
             have_http = False
-            while have_http == False:
+            while not have_http:
                 try:
                     print("Inside `try:` loop...")
                     http_respond = requests.get(file, stream=True, timeout=10)
@@ -117,5 +117,3 @@ def download_file(file, lfn, throttle=None):
             # Close the progress bar, and move the temp file to lfn
             progress_bar.close()
             os.rename(tempfn, lfn)
-
-

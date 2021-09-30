@@ -229,7 +229,7 @@ def recompile_edr3_catalog():
     # Get list of processed EDR3 catalog files
     gaia_files = sorted(glob.glob("GaiaSource_*.fits"))
 
-    progress_bar = tqdm(total=len(gaia_files), unit=' file',
+    progress_bar = tqdm(total=len(gaia_files), unit='file',
                         unit_scale=True, )
 
     while progress_bar.n != len(gaia_files):

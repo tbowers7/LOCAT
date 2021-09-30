@@ -26,11 +26,14 @@ appropriately (in sky coverage and magnitude).
 """
 
 # Built-In Libraries
+import glob
 import os
 
 # Third-Party Libraries
 import numpy as np
-from astropy.table import Table
+from astropy.io.registry import IORegistryError
+from astropy.table import Table, vstack
+from tqdm import tqdm
 
 # General CAT routines
 from .http_utils import *
@@ -177,7 +180,22 @@ def parse_edr3(test_one=True, use_existing=True, throttle=None):
 
 
 def convert_edr3_phot_jc(g, br):
+    """convert_edr3_phot_jc Convert EDR3 photometry to Johnson-Cousins VRI
 
+    [extended_summary]
+
+    Parameters
+    ----------
+    g : `array-like`
+        The Gaia EDR3 G-band photometry magnitude
+    br : `array-like`
+        The Gaia EDR3 `B-R` color from the subband photometries
+
+    Returns
+    -------
+    `tuple` of `array-like`
+        V, R, I magnitudes for the input(s)
+    """
     # Gaia EDR3 photometry conversions
     # From Riello, et al. 2021.  A&A, 649, A3, Table C2
 
@@ -196,15 +214,71 @@ def convert_edr3_phot_jc(g, br):
     return vmag, rmag, imag
 
 
+def recompile_edr3_catalog():
+    
+    decband_fn = []
+    # Create empty dec-band files
+    for dec_min in range(-40, 90, 10):
+
+        # Construct the filename, create and write an empty table
+        fn = f"Gaia_EDR3_dec_{dec_min:+d}_{dec_min+10:+d}.fits"
+        decband_fn.append(fn)
+        t = Table()
+        t.write(fn, overwrite=True)
+
+    # Get list of processed EDR3 catalog files
+    gaia_files = sorted(glob.glob("GaiaSource_*.fits"))
+
+    progress_bar = tqdm(total=len(gaia_files), unit=' file',
+                        unit_scale=True, )
+
+    while progress_bar.n != len(gaia_files):
+        # Read in each of the processed EDR3 files
+        for gaia in gaia_files:
+            try:
+                t = Table.read(gaia)
+            # The IORegistryError occurs when we created an empty file above
+            except IORegistryError:
+                continue
+
+            # Find which dec bands are represented by this EDR3 file
+            dec_range = np.array([np.min(t['dec']), np.max(t['dec'])])
+            band_range = np.floor(dec_range/10.)*10
+            bands = np.arange(band_range[0], band_range[1]+1, 10)
+
+            # Open the dec-band file(s) and append the objects from this EDR3 file
+            for band in bands:
+                fn = f"Gaia_EDR3_dec_{band:+.0f}_{band+10:+.0f}.fits"
+                dec_table = Table.read(fn)
+
+                # Get list of objects in this band
+                idx = np.where(np.logical_and(t['dec'] >= band, t['dec'] < band+10))
+
+                # Append the objects from this dec band to the appropriate table
+                dec_table = vstack([dec_table, t[idx]])
+                dec_table.write(fn, overwrite=True)
+            
+            progress_bar.update(1)
+
+    # Go through the dec-band files and sort each by RA before resaving.
+    dec_files = sorted(glob.glob(f"Gaia_EDR3_dec_*.fits"))
+    for dec_file in dec_files:
+        t = Table.read(dec_file)
+        t.sort('ra')
+        t.write(dec_file, overwrite=True)
 
 
 #======================================
-def main():
+def main(args=['parse_gaia.py'], throttle=None):
     """
     This is the main body function.
     """
-    pass
-
+    throttle = float(args[1]) if len(args) > 1 else None
+    print("Downloasing and parding Gaia EDR3 catalog files...")
+    parse_edr3(test_one=False, use_existing=False, throttle=throttle)
+    print("Recompiling downloaded Gaia EDR3 files into dec bands...")
+    recompile_edr3_catalog()
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv)

@@ -232,32 +232,33 @@ def recompile_edr3_catalog():
     progress_bar = tqdm(total=len(gaia_files), unit='file',
                         unit_scale=False)
 
-    while progress_bar.n != len(gaia_files):
-        # Read in each of the processed EDR3 files
-        for gaia in gaia_files:
-            try:
-                t = Table.read(gaia)
-            # The IORegistryError occurs when we created an empty file above
-            except IORegistryError:
-                continue
-
-            # Find which dec bands are represented by this EDR3 file
-            dec_range = np.array([np.min(t['dec']), np.max(t['dec'])])
-            band_range = np.floor(dec_range/10.)*10
-            bands = np.arange(band_range[0], band_range[1]+1, 10)
-
-            # Open the dec-band file(s) and append the objects from this EDR3 file
-            for band in bands:
-
-                # Get list of objects in this band
-                idx = np.where(np.logical_and(t['dec'] >= band, t['dec'] < band+10))
-
-                # Append the objects from this dec band to the appropriate table
-                dec_tables[f"{band:+.0f}"] = \
-                    vstack([dec_tables[f"{band:+.0f}"], t[idx]])
-#                print(f"Writing to dec band table: {fn}")
-
+    # Read in each of the processed EDR3 files
+    for gaia in gaia_files:
+        try:
+            t = Table.read(gaia)
+        # The IORegistryError occurs when we created an empty file above
+        except IORegistryError:
             progress_bar.update(1)
+            continue
+
+        # Find which dec bands are represented by this EDR3 file
+        dec_range = np.array([np.min(t['dec']), np.max(t['dec'])])
+        band_range = np.floor(dec_range/10.)*10
+        bands = np.arange(band_range[0], band_range[1]+1, 10)
+
+        # Open the dec-band file(s) and append the objects from this EDR3 file
+        for band in bands:
+
+            # Get list of objects in this band
+            idx = np.where(np.logical_and(t['dec'] >= band, t['dec'] < band+10))
+
+            # Append the objects from this dec band to the appropriate table
+            dec_tables[f"{band:+.0f}"] = \
+                vstack([dec_tables[f"{band:+.0f}"], t[idx]])
+            # print(f"Writing to dec band table: {fn}")
+
+        progress_bar.update(1)
+    progress_bar.close()
 
     # Go through the dec-band files and sort each by RA before resaving.
     for dec_min in dec_tables.colnames:

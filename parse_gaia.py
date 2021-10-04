@@ -261,7 +261,7 @@ def recompile_edr3_catalog():
     progress_bar.close()
 
     # Go through the dec-band files and sort each by RA before resaving.
-    for dec_min in dec_tables.colnames:
+    for dec_min in dec_tables.keys():
         table = dec_tables[dec_min]
         table.sort('ra')
         table.write(f"Gaia_EDR3_dec_{dec_min:+d}_{dec_min+10:+d}.fits",

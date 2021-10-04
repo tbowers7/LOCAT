@@ -256,6 +256,7 @@ def recompile_edr3_catalog():
 
                 # Append the objects from this dec band to the appropriate table
                 dec_table = vstack([dec_table, t[idx]])
+                print(f"Writing to dec band file: {fn}")
                 dec_table.write(fn, overwrite=True)
             
             progress_bar.update(1)

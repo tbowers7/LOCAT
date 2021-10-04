@@ -264,7 +264,7 @@ def recompile_edr3_catalog():
     for dec_min in dec_tables.keys():
         table = dec_tables[dec_min]
         table.sort('ra')
-        table.write(f"Gaia_EDR3_dec_{dec_min:+d}_{dec_min+10:+d}.fits",
+        table.write(f"Gaia_EDR3_dec_{dec_min}_{int(dec_min)+10:+d}.fits",
                     overwrite=True)
 
 

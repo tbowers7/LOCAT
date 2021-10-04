@@ -215,16 +215,16 @@ def convert_edr3_phot_jc(g, br):
 
 
 def recompile_edr3_catalog():
-    
+
     decband_fn = []
+    dec_tables = {}
     # Create empty dec-band files
     for dec_min in range(-40, 90, 10):
 
         # Construct the filename, create and write an empty table
         fn = f"Gaia_EDR3_dec_{dec_min:+d}_{dec_min+10:+d}.fits"
         decband_fn.append(fn)
-        t = Table()
-        t.write(fn, overwrite=True)
+        dec_tables[f"{dec_min:+.0f}"] = Table()
 
     # Get list of processed EDR3 catalog files
     gaia_files = sorted(glob.glob("GaiaSource_*.fits"))
@@ -248,25 +248,23 @@ def recompile_edr3_catalog():
 
             # Open the dec-band file(s) and append the objects from this EDR3 file
             for band in bands:
-                fn = f"Gaia_EDR3_dec_{band:+.0f}_{band+10:+.0f}.fits"
-                dec_table = Table.read(fn)
 
                 # Get list of objects in this band
                 idx = np.where(np.logical_and(t['dec'] >= band, t['dec'] < band+10))
 
                 # Append the objects from this dec band to the appropriate table
-                dec_table = vstack([dec_table, t[idx]])
-                print(f"Writing to dec band file: {fn}")
-                dec_table.write(fn, overwrite=True)
-            
+                dec_tables[f"{band:+.0f}"] = \
+                    vstack([dec_tables[f"{band:+.0f}"], t[idx]])
+#                print(f"Writing to dec band table: {fn}")
+
             progress_bar.update(1)
 
     # Go through the dec-band files and sort each by RA before resaving.
-    dec_files = sorted(glob.glob(f"Gaia_EDR3_dec_*.fits"))
-    for dec_file in dec_files:
-        t = Table.read(dec_file)
-        t.sort('ra')
-        t.write(dec_file, overwrite=True)
+    for dec_min in dec_tables.colnames:
+        table = dec_tables[dec_min]
+        table.sort('ra')
+        table.write(f"Gaia_EDR3_dec_{dec_min:+d}_{dec_min+10:+d}.fits",
+                    overwrite=True)
 
 
 #======================================
